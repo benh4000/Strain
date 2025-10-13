@@ -1,0 +1,89 @@
+    rectCollision(x, y, w, h) {
+        return this.collision(x, y) || this.collision(x+w, y) || this.collision(x, y+h) || this.collision(x+w, y+h);
+    }
+
+    rectEntityCollision(entity) {
+        if(this.rectCollision(entity.x, entity.y, entity.w, entity.h)) {
+            let right = false;
+            let left = false;
+            let top = false;
+            let bottom = false;
+            //right collision
+            if(entity.x < this.x+this.w && entity.x + entity.w > this.x+this.w) {
+                right = true;
+            }
+            //left collision
+            if(entity.x < this.x && entity.x + entity.w > this.x) {
+                left = true;
+            }
+            //top collision
+            if(entity.y < this.y && entity.y + entity.h > this.y) {
+                top = true;
+            }
+            //bottom collision
+            if(entity.y < this.y+this.h && entity.y + entity.h > this.y+this.h) {
+                bottom = true;
+            }
+
+            if(right && top) {
+                if(this.x+this.w-entity.x > entity.y+entity.h-this.y) {
+                    
+                    entity.y = this.y-entity.h;
+                }
+                else {
+                    entity.x = this.x + this.w;
+                }
+            }
+            else if(right && bottom) {
+                if(this.x+this.w-entity.x > this.y+this.h-entity.y) {
+                    
+                    entity.y = this.y + this.h;
+                }
+                else {
+                    entity.x = this.x + this.w;
+                }
+            }
+            else if(left && top) {
+                if(entity.x+entity.w-this.x > entity.y+entity.h-this.y) {
+                    
+                    entity.y = this.y-entity.h;
+                }
+                else {
+                    entity.x = this.x-entity.w;
+                }
+            }
+            else if(left && bottom) {
+                if(entity.x+entity.w-this.x > this.y+this.h-entity.y) {
+                    entity.y = this.y + this.h;
+                }
+                else {
+                    
+                    entity.x = this.x-entity.w;
+                }
+            }
+            else if(right) {
+                entity.x = this.x + this.w;
+            }
+            else if(left) {
+                entity.x = this.x-entity.w;
+            }
+            else if(top) {
+                entity.y = this.y-entity.h;
+            }
+            else if(bottom) {
+                entity.y = this.y + this.h;
+            }
+        }
+    }
+
+
+    ctx.fillStyle = this.color;
+    let seg = this.r/Math.sqrt(2);
+    ctx.beginPath();
+    ctx.moveTo(this.x + this.r*Math.cos(this.theta + Math.PI/4), this.y + this.r*Math.sin(this.theta + Math.PI/4));
+    ctx.lineTo(this.x + this.r*Math.cos(this.theta + Math.PI/4 + Math.PI/2), this.y + this.r*Math.sin(this.theta + Math.PI/4 + Math.PI/2));
+    ctx.lineTo(this.x + this.r*Math.cos(this.theta + Math.PI/4 + Math.PI), this.y + this.r*Math.sin(this.theta + Math.PI/4 + Math.PI));
+    ctx.lineTo(this.x + this.r*Math.cos(this.theta + Math.PI/4 + 3*Math.PI/2), this.y + this.r*Math.sin(this.theta + Math.PI/4 + 3*Math.PI/2));
+    ctx.lineTo(this.x + this.r*Math.cos(this.theta + Math.PI/4), this.y + this.r*Math.sin(this.theta + Math.PI/4));
+    ctx.closePath();
+    ctx.fill();
