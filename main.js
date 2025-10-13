@@ -324,14 +324,19 @@ let wallThickness = 70;
 let doorSize = 200;
 let wallWidth = (width-doorSize)/2;
 let wallHeight = (height-doorSize)/2;
-walls.push(new Wall(0, 0 + offset, wallThickness, wallHeight, wallColor));
-walls.push(new Wall(0, wallHeight+doorSize + offset, wallThickness, wallHeight, wallColor));
-walls.push(new Wall(width-wallThickness, 0 + offset, wallThickness, wallHeight, wallColor));
-walls.push(new Wall(width-wallThickness, wallHeight+doorSize + offset, wallThickness, wallHeight, wallColor));
-walls.push(new Wall(0, 0 + offset, wallWidth, wallThickness, wallColor));
-walls.push(new Wall(wallWidth+doorSize, 0 + offset, wallWidth, wallThickness, wallColor));
-walls.push(new Wall(wallWidth+doorSize, height-wallThickness + offset, wallWidth, wallThickness, wallColor));
-walls.push(new Wall(0, height-wallThickness + offset, wallWidth, wallThickness, wallColor));
+walls.push(new Wall(0, 0 + offset, wallThickness, wallHeight, wallColor)); //top left left
+walls.push(new Wall(0, wallHeight+doorSize + offset, wallThickness, wallHeight, wallColor)); //bottom left left
+walls.push(new Wall(width-wallThickness, 0 + offset, wallThickness, wallHeight, wallColor)); //top right right
+walls.push(new Wall(width-wallThickness, wallHeight+doorSize + offset, wallThickness, wallHeight, wallColor)); //bottom right right
+walls.push(new Wall(0, 0 + offset, wallWidth, wallThickness, wallColor)); //top left top
+walls.push(new Wall(wallWidth+doorSize, 0 + offset, wallWidth, wallThickness, wallColor)); //top right top
+walls.push(new Wall(wallWidth+doorSize, height-wallThickness + offset, wallWidth, wallThickness, wallColor)); //bottom right bottom
+walls.push(new Wall(0, height-wallThickness + offset, wallWidth, wallThickness, wallColor)); //bottom left bottom
+
+walls.push(new Wall(wallWidth, 0 + offset, doorSize, wallThickness, wallColor)); //top
+walls.push(new Wall(0, 0 + offset + wallHeight, wallThickness, wallHeight, wallColor)); //left
+walls.push(new Wall(width-wallThickness, 0 + offset + wallHeight, wallThickness, wallHeight, wallColor)); //right
+walls.push(new Wall(wallWidth, height-wallThickness + offset, doorSize, wallThickness, wallColor)); //bottom
 
 let projectiles = [];
 let enemies = [];
