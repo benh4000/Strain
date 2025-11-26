@@ -24,6 +24,12 @@ wall.y = 200;
 wall.w = 100;
 wall.h = 400;
 
+
+let scaleFactor = 0.75;
+canvas.width = canvas.width * scaleFactor;
+canvas.height = canvas.height * scaleFactor;
+ctx.scale(scaleFactor, scaleFactor);
+
 function updateStuff(entity) {
     if(keyStats['KeyW']) {entity.y -= movement;}
     if(keyStats['KeyD']) {entity.x += movement;}

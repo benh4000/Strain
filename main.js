@@ -5,26 +5,42 @@ let offset = 70;
 canvas.width = width;
 canvas.height = height + offset;
 let ctx = canvas.getContext("2d");
+
+let baseWindowWidth = 1536;
+let baseWindowHeight = 730;
 let keyStats = {};
 let mouse = {};
 mouse.x = 0;
 mouse.y = 0;
 let showHitboxes = false;
+let doSpawning = true;
+let standardRadius = 35;
+let spriteRatio = 1.3;
 let playerSprite = new Image(50, 50);
-playerSprite.src = "player.png"
+playerSprite.src = "assets\\player.png"
 let enemySprite = new Image(50, 50);
-enemySprite.src = "enemy.png"
+enemySprite.src = "assets\\enemy.png"
 
 let gameOver = new Image();
-gameOver.src = "game_over.png"
+gameOver.src = "assets\\game_over.png"
 let victory = new Image();
-victory.src = "victory.png"
+victory.src = "assets\\victory.png"
 let levelUp = new Image();
-levelUp.src = "level_up.png"
+levelUp.src = "assets\\level_up.png"
 let guide = new Image();
-guide.src = "guide.png";
+guide.src = "assets\\guide.png";
 
 
+let scaleFactor = window.innerHeight/baseWindowHeight;
+if(scaleFactor > window.innerWidth/baseWindowWidth) {
+    //console.log("height factor: " + scaleFactor);
+    scaleFactor = window.innerWidth/baseWindowWidth;
+}
+//console.log(scaleFactor);
+scaleFactor *= 0.9;
+canvas.width = canvas.width * scaleFactor;
+canvas.height = canvas.height * scaleFactor;
+ctx.scale(scaleFactor, scaleFactor);
 
 function pythag(a, b) {
     return Math.sqrt(a**2 + b**2);
@@ -104,7 +120,7 @@ class Entity {
     }
 
     draw() {
-        angleRect(this.x, this.y, this.r*1.3, this.theta+Math.PI/2, this.sprite);
+        angleRect(this.x, this.y, this.r*spriteRatio, this.theta+Math.PI/2, this.sprite);
 
         if(showHitboxes) {
             ctx.beginPath();
@@ -317,13 +333,20 @@ class Wall {
     }
 }
 
-let player = new Player(800, 450, 35, 2, playerSprite);
+let player = new Player(800, 450, standardRadius, 2, playerSprite);
 let wallColor = "#383838ff";
+let doorColor = "#383838ff";//"#453103ff";
 let walls = [];
 let wallThickness = 70;
 let doorSize = 200;
 let wallWidth = (width-doorSize)/2;
 let wallHeight = (height-doorSize)/2;
+
+walls.push(new Wall(wallWidth, 0 + offset, doorSize, wallThickness, doorColor)); //top
+walls.push(new Wall(0, 0 + offset + wallHeight, wallThickness, wallHeight, doorColor)); //left
+walls.push(new Wall(width-wallThickness, 0 + offset + wallHeight, wallThickness, wallHeight, doorColor)); //right
+walls.push(new Wall(wallWidth, height-wallThickness + offset, doorSize, wallThickness, doorColor)); //bottom
+
 walls.push(new Wall(0, 0 + offset, wallThickness, wallHeight, wallColor)); //top left left
 walls.push(new Wall(0, wallHeight+doorSize + offset, wallThickness, wallHeight, wallColor)); //bottom left left
 walls.push(new Wall(width-wallThickness, 0 + offset, wallThickness, wallHeight, wallColor)); //top right right
@@ -333,14 +356,11 @@ walls.push(new Wall(wallWidth+doorSize, 0 + offset, wallWidth, wallThickness, wa
 walls.push(new Wall(wallWidth+doorSize, height-wallThickness + offset, wallWidth, wallThickness, wallColor)); //bottom right bottom
 walls.push(new Wall(0, height-wallThickness + offset, wallWidth, wallThickness, wallColor)); //bottom left bottom
 
-walls.push(new Wall(wallWidth, 0 + offset, doorSize, wallThickness, wallColor)); //top
-walls.push(new Wall(0, 0 + offset + wallHeight, wallThickness, wallHeight, wallColor)); //left
-walls.push(new Wall(width-wallThickness, 0 + offset + wallHeight, wallThickness, wallHeight, wallColor)); //right
-walls.push(new Wall(wallWidth, height-wallThickness + offset, doorSize, wallThickness, wallColor)); //bottom
+
 
 let projectiles = [];
 let enemies = [];
-enemies.push(new Enemy(300, 300, 35, 1.5, enemySprite, 10));
+enemies.push(new Enemy(300, 300, standardRadius, 1.5, enemySprite, 10));
 
 
 let collidables = [];
@@ -358,13 +378,18 @@ let spawnTime = spawnTimer
 
 setInterval(() => {
     
+    
     drawScreen();
     drawUI();
     
-    
+    //console.log(mouse.x + " " + mouse.y);
+    //angleRect(mouse.x, mouse.y, 20, 0, enemySprite);
     
     if(simulating) {
-        spawn();
+        if(doSpawning) {
+            spawn();
+        }
+        
         player.update();
         for(let wall of walls) {
             wall.draw();
@@ -426,7 +451,7 @@ setInterval(() => {
 
 document.addEventListener('keydown', (e) => {keyStats[e.code] = true});
 document.addEventListener('keyup', (e) => {keyStats[e.code] = false});
-document.addEventListener('mousemove', (e) => {mouse.x = e.x - canvas.getBoundingClientRect().left; mouse.y = e.y - canvas.getBoundingClientRect().top});
+document.addEventListener('mousemove', (e) => {mouse.x = (e.x - canvas.getBoundingClientRect().left)/scaleFactor; mouse.y = (e.y - canvas.getBoundingClientRect().top)/scaleFactor});
 
 function spawn() {
     spawnTime -= 1;
@@ -440,7 +465,7 @@ function spawn() {
         spawnTimer *= 0.9;
         spawnTime = spawnTimer;
         
-        console.log(spawnTimer);
+        //console.log(spawnTimer);
         let spawns = [true, true, true, true];
         if(player.x < width/2 && player.y < height/2) {
             spawns[0] = false;
@@ -469,16 +494,16 @@ function spawn() {
             spawns[choice] = false;
         }
         if(spawns[0]) {
-            enemies.push(new Enemy(150, 250, 35, 1.5, enemySprite, 10));
+            enemies.push(new Enemy(150, 250, standardRadius, 1.5, enemySprite, 10));
         }
         if(spawns[1]) {
-            enemies.push(new Enemy(width-150, 250, 35, 1.5, enemySprite, 10));
+            enemies.push(new Enemy(width-150, 250, standardRadius, 1.5, enemySprite, 10));
         }
         if(spawns[2]) {
-            enemies.push(new Enemy(150, height + offset - 150, 35, 1.5, enemySprite, 10));
+            enemies.push(new Enemy(150, height + offset - 150, standardRadius, 1.5, enemySprite, 10));
         }
         if(spawns[3]) {
-            enemies.push(new Enemy(width - 150, height + offset - 150, 35, 1.5, enemySprite, 10));
+            enemies.push(new Enemy(width - 150, height + offset - 150, standardRadius, 1.5, enemySprite, 10));
         }
 
     }
