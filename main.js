@@ -216,6 +216,9 @@ class Player extends Entity {
         this.levelXp *= 1.5;
         this.i += 50;
         this.level += 1;
+        if(this.hp < 4) {
+            this.hp += 1;
+        }
 
         simulating = false;
         overlay = levelUp;
@@ -250,6 +253,24 @@ class Enemy extends Entity {
 
         if(pythag(player.x-this.x, player.y-this.y) < this.r + player.r) {
             player.hit(this.theta);
+        }
+
+        for(let e of enemies) {
+
+            if(e != this && pythag(e.x-this.x, e.y-this.y) < this.r + e.r) {
+                let theta = Math.atan((e.y-this.y)/(e.x-this.x));
+                if(e.x < this.x) {
+                    theta += Math.PI;
+                }
+                let distance = this.r + e.r - pythag(e.x-this.x, e.y-this.y);
+                let dx = distance*Math.cos(theta);
+                let dy = distance*Math.sin(theta);
+                this.x -= dx;
+                this.y -= dy;
+                
+                break;
+            }
+
         }
     }
 
@@ -469,6 +490,8 @@ class Room {
 
 
         gameMap[this.x.toString() + this.y.toString()] = this;
+
+        this.triggered = false;
     }
 
     update() {
@@ -497,6 +520,24 @@ class Room {
             player.y = offset + 2;
             currentRoom.update();
         }
+        if(!this.triggered && !this.resolved && player.x < width - wallThickness && player.x > wallThickness && player.y > offset + wallThickness && player.y < height + offset - wallThickness) {
+            this.triggered = true;
+            for(let bar of bars) {
+                bar.show = true;
+            }
+            spawnTimer = 1000;
+            spawnTime = 100;
+        }
+        if(this.triggered) {
+            spawn();
+            if(spawnTimer < 300 && enemies.length == 0) {
+                this.triggered = false;
+                this.resolved = true;
+                for(let bar of bars) {
+                    bar.show = false;
+                }
+            }
+        }
     }
 }
 
@@ -510,6 +551,7 @@ startRoom.up = true;
 startRoom.down = true;
 startRoom.left = true;
 startRoom.right = true;
+startRoom.resolved = true;
 let currentRoom = startRoom;
 
 
@@ -661,10 +703,10 @@ document.addEventListener('mousemove', (e) => {mouse.x = (e.x - canvas.getBoundi
 
 function spawn() {
     spawnTime -= 1;
-    if(spawnTimer < 200) {
+    if(spawnTimer < 300) {
         if(enemies.length == 0) {
-            simulating = false;
-            overlay = victory;
+            //simulating = false;
+            //overlay = victory;
         }
     }
     else if(spawnTime <= 0) {
