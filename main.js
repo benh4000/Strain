@@ -158,7 +158,7 @@ class Player extends Entity {
         this.dmg = 1;
         this.xp = 0;
         this.level = 1;
-        this.levelXp = 100;
+        this.levelXp = 150;
         this.luck = 0;
     }
 
@@ -216,7 +216,7 @@ class Player extends Entity {
 
     levelUp() {
         this.xp -= this.levelXp;
-        this.levelXp *= 1.4;
+        this.levelXp *= 1.3;
         this.i += 50;
         this.level += 1;
         if(this.hp < 4) {
@@ -571,7 +571,7 @@ class Room {
             for(let bar of bars) {
                 bar.show = true;
             }
-            spawnTimer = 1000;
+            spawnTimer = 900;
             spawnTime = 100;
         }
         if(this.triggered && this != startRoom) {
