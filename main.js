@@ -20,6 +20,8 @@ let playerSprite = new Image(50, 50);
 playerSprite.src = "assets\\player.png"
 let enemySprite = new Image(50, 50);
 enemySprite.src = "assets\\enemy.png"
+let archerSprite = new Image(50, 50);
+archerSprite.src = "assets\\enemy2.png";
 
 let gameOver = new Image();
 gameOver.src = "assets\\game_over.png"
@@ -57,10 +59,10 @@ function angleRect(x, y, r, theta, sprite) {
 
 
 class Projectile {
-    constructor(x, y, theta, color, speed, owner, dmg) {
+    constructor(x, y, theta, color, speed, owner, dmg, scale) {
         this.bx = x;
         this.by = y;
-        this.length = 10;
+        this.length = 10 * scale;
         this.x = this.bx + Math.cos(theta)*this.length;
         this.y = this.by + Math.sin(theta)*this.length;
         this.vx = speed * Math.cos(theta);
@@ -69,10 +71,11 @@ class Projectile {
         this.owner = owner;
         this.theta = theta;
         this.dmg = dmg;
+        this.scale = scale;
     }
 
     draw() {
-        ctx.lineWidth = 6;
+        ctx.lineWidth = 6 * this.scale;
         ctx.strokeStyle = this.color;
         ctx.beginPath();
         ctx.moveTo(this.bx, this.by);
@@ -177,7 +180,7 @@ class Player extends Entity {
         }
 
 
-        if(keyStats['Space'] && this.shootDelay <= 0) {projectiles.push(new Projectile(this.x, this.y, this.theta, "blue", 4, this, this.dmg)); this.shootDelay = 40;}
+        if(keyStats['Space'] && this.shootDelay <= 0) {projectiles.push(new Projectile(this.x, this.y, this.theta, "blue", 4, this, this.dmg, 1.0)); this.shootDelay = 40;}
         this.shootDelay -= 1;
 
         this.theta = Math.atan((mouse.y-this.y)/(mouse.x-this.x));
@@ -213,7 +216,7 @@ class Player extends Entity {
 
     levelUp() {
         this.xp -= this.levelXp;
-        this.levelXp *= 1.5;
+        this.levelXp *= 1.4;
         this.i += 50;
         this.level += 1;
         if(this.hp < 4) {
@@ -222,6 +225,10 @@ class Player extends Entity {
 
         simulating = false;
         overlay = levelUp;
+
+        if(player.level >= 10) {
+            startRoom.resolved = false;
+        }
     }
 
 
@@ -299,6 +306,45 @@ class Enemy extends Entity {
         super.draw();
         this.theta -= Math.PI;
     }
+}
+
+class Archer extends Enemy {
+    constructor(x, y, r, speed, sprite, hp) {
+        super(x, y, r, speed, sprite, hp);
+        this.shootTime = 0;
+        this.strafe = true;
+        this.shootTimer = 250;
+    }
+
+    update() {
+        super.update();
+        if(this.strafe) {
+            this.x -= this.vx/2;
+            this.y -= this.vy/2;
+            if(Math.abs(this.vx) < Math.abs(this.vy)) {
+                this.x -= this.vx;
+            }
+            else {
+                this.y -= this.vy;
+            }
+        }
+
+        for(let c of collidables) {
+            c.circleCollision(this);
+        }
+
+        this.shootTime += 1;
+        if(this.shootTime >= this.shootTimer) {
+            projectiles.push(new Projectile(this.x, this.y, this.theta, "rgba(80, 49, 2, 1)", 7, this, 1, 1.8));
+            if(!this.strafe) {
+                projectiles.push(new Projectile(this.x, this.y, this.theta + Math.PI/12, "rgba(80, 49, 2, 1)", 7, this, 1, 1.8));
+                projectiles.push(new Projectile(this.x, this.y, this.theta - Math.PI/12, "rgba(80, 49, 2, 1)", 7, this, 1, 1.8));
+            }
+            this.shootTime = 0;
+        }
+    }
+
+
 }
 
 class Wall {
@@ -528,7 +574,7 @@ class Room {
             spawnTimer = 1000;
             spawnTime = 100;
         }
-        if(this.triggered) {
+        if(this.triggered && this != startRoom) {
             spawn();
             if(spawnTimer < 300 && enemies.length == 0) {
                 this.triggered = false;
@@ -537,6 +583,16 @@ class Room {
                     bar.show = false;
                 }
             }
+        } else if(this.triggered && this == startRoom) {
+            if(!bossSpawned) {
+                enemies.push(boss);
+                bossSpawned = true;
+            }
+            if(enemies.length == 0) {
+                simulating = false;
+                overlay = victory;
+            }
+
         }
     }
 }
@@ -600,7 +656,9 @@ bars.push(downBar);
 
 let projectiles = [];
 let enemies = [];
-//enemies.push(new Enemy(300, 300, standardRadius, 1.5, enemySprite, 10));
+
+let wasArcher = true;
+
 
 
 let collidables = [];
@@ -615,6 +673,12 @@ let simulating = false;
 let overlay = guide;
 let spawnTimer = 1000;
 let spawnTime = spawnTimer
+
+let boss = new Archer(width/2, height/2+offset, standardRadius*1.7, 1, archerSprite, 300);
+boss.strafe = false;
+
+bossSpawned = false;
+
 
 setInterval(() => {
     
@@ -712,6 +776,10 @@ function spawn() {
     else if(spawnTime <= 0) {
         spawnTimer *= 0.9;
         spawnTime = spawnTimer;
+
+        if(player.level > 3 && Math.random() < 0.3) {
+            wasArcher = false;
+        }
         
         //console.log(spawnTimer);
         let spawns = [true, true, true, true];
@@ -727,38 +795,55 @@ function spawn() {
         if(player.x > width/2 && player.y > height/2) {
             spawns[3] = false;
         }
-        num = Math.random();
-        choice = 2;
-        if(num < 0.3) {
-            choice = 0;
+
+        if(player.level < 8) {
+            num = Math.random();
+            choice = 2;
+            if(num < 0.3) {
+                choice = 0;
+            }
+            else if(num < 0.65) {
+                choice = 1;
+            }
+            if(spawns[choice] == false) {
+                spawns[choice+1] = false;
+            }
+            else {
+                spawns[choice] = false;
+            }
         }
-        else if(num < 0.65) {
-            choice = 1;
-        }
-        if(spawns[choice] == false) {
-            spawns[choice+1] = false;
-        }
-        else {
-            spawns[choice] = false;
-        }
+
+
         if(spawns[0]) {
-            enemies.push(new Enemy(150, 250, standardRadius, 1.5, enemySprite, 10));
+            place(150, 250)
         }
         if(spawns[1]) {
-            enemies.push(new Enemy(width-150, 250, standardRadius, 1.5, enemySprite, 10));
+            place(width-150, 250);
         }
         if(spawns[2]) {
-            enemies.push(new Enemy(150, height + offset - 150, standardRadius, 1.5, enemySprite, 10));
+            place(150, height + offset - 150);
         }
         if(spawns[3]) {
-            enemies.push(new Enemy(width - 150, height + offset - 150, standardRadius, 1.5, enemySprite, 10));
+            place(width - 150, height + offset - 150);
         }
 
     }
 }
 
+function place(x, y) {
+    if(wasArcher) {
+        enemies.push(new Enemy(x, y, standardRadius, 1.5, enemySprite, 10));
+    }
+    else {
+        wasArcher = true;
+        enemies.push(new Archer(x, y, standardRadius*1.2, 1.4, archerSprite, 10));
+    }
+    
+}
+
 function drawOverlay(overlay) {
     ctx.drawImage(overlay, (width-overlay.width)/2, (height-overlay.height)/2+offset);
+
 }
 
 function drawScreen() {
@@ -767,6 +852,14 @@ function drawScreen() {
 
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, width, offset);
+
+    if(startRoom == currentRoom) {
+        ctx.fillStyle = "#520f0fff";
+        ctx.fillRect(250, 150 + offset, width-500, 75);
+        ctx.fillRect(250, height + offset - 250, width-500, 75);
+        ctx.fillRect(250, 150 + offset, 75, 350);
+        ctx.fillRect(width-575+250, 150 + offset, 75, 350);
+    }
 }
 
 function drawUI() {
@@ -787,12 +880,20 @@ function drawUI() {
 
     ctx.fillStyle = "white";
     ctx.font = "bold 48px system-ui";
-    ctx.fillText(player.level, width-40, 40);
+    ctx.fillText(player.level, width-50, 40);
+
+
+    if(player.level >= 10) {
+        ctx.font = "bold 30px system-ui";
+        ctx.fillText("Return to the start ...if you dare", width-850, 40);
+    }
 
     ctx.fillStyle= "grey";
-    ctx.fillRect(width - 250, 10, 200, 30);
+    ctx.fillRect(width - 260, 10, 200, 30);
 
     ctx.fillStyle = "yellow";
-    ctx.fillRect(width - 250, 10, 200*(player.xp/player.levelXp), 30);
+    ctx.fillRect(width - 260, 10, 200*(player.xp/player.levelXp), 30);
+
+
 
 }
