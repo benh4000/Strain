@@ -93,6 +93,10 @@ class Projectile {
                 projectiles.splice(projectiles.indexOf(this), 1);
             }
         }
+
+        if(this.x > width || this.x < 0 || this.y < offset || this.y > height + offset) {
+            projectiles.splice(projectiles.indexOf(this), 1);
+        }
     }
 
     hasCollided(entity) {
@@ -283,21 +287,27 @@ class Wall {
         this.w = w;
         this.h = h;
         this.color = color;
+        this.show = true;
     }
 
     draw() {
-        ctx.fillStyle = this.color;
-        ctx.fillRect(this.x, this.y, this.w, this.h);
+        if(this.show) {
+            ctx.fillStyle = this.color;
+            ctx.fillRect(this.x, this.y, this.w, this.h);
+        }
+        
         
 
     }
 
     collision(x, y) {
-        return x > this.x && x < this.x + this.w && y > this.y && y < this.y + this.h;
+        return x > this.x && x < this.x + this.w && y > this.y && y < this.y + this.h && this.show;
     }
 
     circleCollision(entity) {
-
+        if(!this.show) {
+            return;
+        }
         let lineY = 0;
         if(entity.y < this.y) {
             lineY = this.y;
@@ -333,7 +343,176 @@ class Wall {
     }
 }
 
+class Bar {
+    constructor(x1, y1, x2, y2, num) {
+        let segs = num*2+1;
+        this.parts = [];
+        this.show = false;
+        //Horizontal
+        if(x2-x1 > y2-y1) {
+            let size = (x2-x1)/segs;
+            let top = (y2-y1)/2 - size/2;
+            for(let i=0; i<num; i++) {
+                this.parts.push(new Wall(x1 + size + i*size*2, y1 + top, size, size, wallColor));
+            }
+        }
+        //Vertical
+        else {
+            let size = (y2-y1)/segs;
+            let left = (x2-x1)/2 - size/2;
+            for(let i=0; i<num; i++) {
+                this.parts.push(new Wall(x1 + left, y1 + size + i*size*2, size, size, wallColor));
+            }
+        }
+        walls.push(...this.parts);
+    }
+
+    update() {
+        for(let part of this.parts) {
+            part.show = this.show;
+        }
+    
+    }
+}
+
+class GameMap {
+    constructor() {
+
+    }
+
+    getRoom(x, y) {
+        return this[x.toString() + y.toString()];
+    }
+
+    load(parent, direction) {
+        if(direction == "left") {if(this.getRoom(parent.x+1, parent.y) == undefined) {this[(parent.x+1).toString() + parent.y.toString()] = new Room(parent, direction)} currentRoom = this.getRoom(parent.x+1, parent.y);}
+        if(direction == "right") {if(this.getRoom(parent.x-1, parent.y) == undefined) {this[(parent.x-1).toString() + parent.y.toString()] = new Room(parent, direction)} currentRoom = this.getRoom(parent.x-1, parent.y);}
+        if(direction == "up") {if(this.getRoom(parent.x, parent.y-1) == undefined) {this[parent.x.toString() + (parent.y-1).toString()] = new Room(parent, direction)} currentRoom = this.getRoom(parent.x, parent.y-1);}
+        if(direction == "down") {if(this.getRoom(parent.x, parent.y+1) == undefined) {this[parent.x.toString() + (parent.y+1).toString()] = new Room(parent, direction)} currentRoom = this.getRoom(parent.x, parent.y+1);}
+    }
+}
+
+class Room {
+    constructor(parent, direction) {
+        this.up = false;
+        this.down = false;
+        this.left = false;
+        this.right = false;
+        if(direction == "right") {
+            this.x = parent.x - 1;
+            this.y = parent.y;
+            this.right = true;
+            if(Math.random() < 0.4) {
+                this.up = true;
+            }
+            if(Math.random() < 0.4) {
+                this.down = true;
+            }
+            if(Math.random() < 0.4) {
+                this.left = true;
+            }
+        }
+        if(direction == "left") {
+            this.x = parent.x + 1;
+            this.y = parent.y;
+            this.left = true;
+            if(Math.random() < 0.4) {
+                this.up = true;
+            }
+            if(Math.random() < 0.4) {
+                this.down = true;
+            }
+            if(Math.random() < 0.4) {
+                this.right = true;
+            }
+        }
+        if(direction == "down") {
+            this.x = parent.x;
+            this.y = parent.y + 1;
+            this.down = true;
+            if(Math.random() < 0.4) {
+                this.up = true;
+            }
+            if(Math.random() < 0.4) {
+                this.right = true;
+            }
+            if(Math.random() < 0.4) {
+                this.left = true;
+            }
+        }
+        if(direction == "up") {
+            this.x = parent.x;
+            this.y = parent.y - 1;
+            this.up = true;
+            if(Math.random() < 0.4) {
+                this.right = true;
+            }
+            if(Math.random() < 0.4) {
+                this.down = true;
+            }
+            if(Math.random() < 0.4) {
+                this.left = true;
+            }
+        }
+        if(gameMap.getRoom(this.x+1, this.y) != undefined) {
+            this.right = gameMap.getRoom(this.x+1, this.y).left
+        }
+        if(gameMap.getRoom(this.x, this.y - 1) != undefined) {
+            this.down =  gameMap.getRoom(this.x, this.y - 1).up;
+        }
+        if(gameMap.getRoom(this.x-1, this.y) != undefined) {
+            this.left = gameMap.getRoom(this.x-1, this.y).right;
+        }
+        if(gameMap.getRoom(this.x, this.y + 1) != undefined) {
+            this.up = gameMap.getRoom(this.x, this.y + 1).down;
+        }
+
+
+        gameMap[this.x.toString() + this.y.toString()] = this;
+    }
+
+    update() {
+        leftEntrance.show = !this.left;
+        rightEntrance.show = !this.right;
+        upEntrance.show = !this.up;
+        downEntrance.show = !this.down;
+
+        if(player.x < -2) {
+            gameMap.load(this, "right");
+            player.x = width-2;
+            currentRoom.update();
+        }
+        if(player.x > width + 2) {
+            gameMap.load(this, "left");
+            player.x = -2;
+            currentRoom.update();
+        }
+        if(player.y < -2 + offset) {
+            gameMap.load(this, "down");
+            player.y = offset + height - 2;
+            currentRoom.update();
+        }
+        if(player.y > height + offset + 2) {
+            gameMap.load(this, "up");
+            player.y = offset + 2;
+            currentRoom.update();
+        }
+    }
+}
+
 let player = new Player(800, 450, standardRadius, 2, playerSprite);
+let gameMap = new GameMap();
+let parent = {};
+parent.x = 0;
+parent.y = -1;
+let startRoom = new Room(parent, "up");
+startRoom.up = true;
+startRoom.down = true;
+startRoom.left = true;
+startRoom.right = true;
+let currentRoom = startRoom;
+
+
 let wallColor = "#383838ff";
 let doorColor = "#383838ff";//"#453103ff";
 let walls = [];
@@ -342,10 +521,19 @@ let doorSize = 200;
 let wallWidth = (width-doorSize)/2;
 let wallHeight = (height-doorSize)/2;
 
-walls.push(new Wall(wallWidth, 0 + offset, doorSize, wallThickness, doorColor)); //top
-walls.push(new Wall(0, 0 + offset + wallHeight, wallThickness, wallHeight, doorColor)); //left
-walls.push(new Wall(width-wallThickness, 0 + offset + wallHeight, wallThickness, wallHeight, doorColor)); //right
-walls.push(new Wall(wallWidth, height-wallThickness + offset, doorSize, wallThickness, doorColor)); //bottom
+let upEntrance = new Wall(wallWidth-5, 0 + offset, doorSize+10, wallThickness, doorColor); //top
+let leftEntrance = new Wall(0, 0 + offset + wallHeight-5, wallThickness, wallHeight+5, doorColor); //left
+let rightEntrance = new Wall(width-wallThickness, 0 + offset + wallHeight-5, wallThickness, wallHeight+5, doorColor); //right
+let downEntrance = new Wall(wallWidth-5, height-wallThickness + offset, doorSize+5, wallThickness, doorColor); //bottom
+upEntrance.show = false;
+leftEntrance.show = false;
+rightEntrance.show = false;
+downEntrance.show = false;
+walls.push(upEntrance);
+walls.push(leftEntrance);
+walls.push(rightEntrance);
+walls.push(downEntrance);
+
 
 walls.push(new Wall(0, 0 + offset, wallThickness, wallHeight, wallColor)); //top left left
 walls.push(new Wall(0, wallHeight+doorSize + offset, wallThickness, wallHeight, wallColor)); //bottom left left
@@ -357,10 +545,20 @@ walls.push(new Wall(wallWidth+doorSize, height-wallThickness + offset, wallWidth
 walls.push(new Wall(0, height-wallThickness + offset, wallWidth, wallThickness, wallColor)); //bottom left bottom
 
 
+let bars = [];
+topBar = new Bar(wallWidth, offset, wallWidth + doorSize, offset + wallThickness, 5);
+leftBar = new Bar(0, offset + wallHeight, wallThickness, offset + wallHeight + doorSize, 5);
+rightBar = new Bar(width-wallThickness, offset + wallHeight, width, offset + wallHeight + doorSize, 5);
+downBar = new Bar(wallWidth, height-wallThickness + offset, wallWidth + doorSize, offset + height, 5);
+bars.push(topBar);
+bars.push(leftBar);
+bars.push(rightBar);
+bars.push(downBar);
+
 
 let projectiles = [];
 let enemies = [];
-enemies.push(new Enemy(300, 300, standardRadius, 1.5, enemySprite, 10));
+//enemies.push(new Enemy(300, 300, standardRadius, 1.5, enemySprite, 10));
 
 
 let collidables = [];
@@ -387,13 +585,18 @@ setInterval(() => {
     
     if(simulating) {
         if(doSpawning) {
-            spawn();
+            //spawn();
         }
         
         player.update();
+        currentRoom.update();
+        for(let bar of bars) {
+            bar.update();
+        }
         for(let wall of walls) {
             wall.draw();
         }
+
         for(let projectile of projectiles) {
             projectile.update();
             projectile.draw();
@@ -408,6 +611,9 @@ setInterval(() => {
 
     }
     else {
+        for(let bar of bars) {
+            bar.update();
+        }
         for(let wall of walls) {
             wall.draw();
         }
