@@ -15,7 +15,7 @@ mouse.y = 0;
 let showHitboxes = false;
 let doSpawning = true;
 let standardRadius = 35;
-let spriteRatio = 1.3;
+let spriteRatio = 1.4;
 let playerSprite = new Image(50, 50);
 playerSprite.src = "assets\\player.png"
 let enemySprite = new Image(50, 50);
@@ -92,7 +92,7 @@ class Projectile {
         this.by += this.vy;
 
         for(let wall of walls) {
-            if(wall.collision(this.x, this.y)) {
+            if(wall.pCollision(this.x, this.y)) {
                 projectiles.splice(projectiles.indexOf(this), 1);
             }
         }
@@ -348,13 +348,14 @@ class Archer extends Enemy {
 }
 
 class Wall {
-    constructor(x, y, w, h, color) {
+    constructor(x, y, w, h, color, show=true, block=true) {
         this.x = x;
         this.y = y;
         this.w = w;
         this.h = h;
         this.color = color;
-        this.show = true;
+        this.show = show;
+        this.block = block;
     }
 
     draw() {
@@ -367,8 +368,8 @@ class Wall {
 
     }
 
-    collision(x, y) {
-        return x > this.x && x < this.x + this.w && y > this.y && y < this.y + this.h && this.show;
+    pCollision(x, y) {
+        return this.block && (x > this.x && x < this.x + this.w && y > this.y && y < this.y + this.h && this.show);
     }
 
     circleCollision(entity) {
@@ -452,6 +453,7 @@ class GameMap {
     }
 
     load(parent, direction) {
+        parent.unload();
         if(direction == "left") {if(this.getRoom(parent.x+1, parent.y) == undefined) {this[(parent.x+1).toString() + parent.y.toString()] = new Room(parent, direction)} currentRoom = this.getRoom(parent.x+1, parent.y);}
         if(direction == "right") {if(this.getRoom(parent.x-1, parent.y) == undefined) {this[(parent.x-1).toString() + parent.y.toString()] = new Room(parent, direction)} currentRoom = this.getRoom(parent.x-1, parent.y);}
         if(direction == "up") {if(this.getRoom(parent.x, parent.y-1) == undefined) {this[parent.x.toString() + (parent.y-1).toString()] = new Room(parent, direction)} currentRoom = this.getRoom(parent.x, parent.y-1);}
@@ -461,6 +463,7 @@ class GameMap {
 
 class Room {
     constructor(parent, direction) {
+        this.setpiece = "";
         this.up = false;
         this.down = false;
         this.left = false;
@@ -533,11 +536,15 @@ class Room {
         if(gameMap.getRoom(this.x, this.y + 1) != undefined) {
             this.up = gameMap.getRoom(this.x, this.y + 1).down;
         }
-
-
         gameMap[this.x.toString() + this.y.toString()] = this;
 
+        if(this.left && this.right && !this.up && !this.down && !waterSP && Math.random() < 0.26) {
+            this.setpiece = "water";
+            waterSP = true;
+        }
+
         this.triggered = false;
+        this.resolved = true;
     }
 
     update() {
@@ -545,6 +552,11 @@ class Room {
         rightEntrance.show = !this.right;
         upEntrance.show = !this.up;
         downEntrance.show = !this.down;
+
+        if(this.setpiece == "water") {
+            water1.show = true;
+            water2.show = true;
+        }
 
         if(player.x < -2) {
             gameMap.load(this, "right");
@@ -595,6 +607,12 @@ class Room {
 
         }
     }
+    unload() {
+        if(this.setpiece == "water") {
+            water1.show = false;
+            water2.show = false;
+        }
+    }
 }
 
 let player = new Player(800, 450, standardRadius, 2, playerSprite);
@@ -610,6 +628,8 @@ startRoom.right = true;
 startRoom.resolved = true;
 let currentRoom = startRoom;
 
+let waterSP = false;
+
 
 let wallColor = "#383838ff";
 let doorColor = "#383838ff";//"#453103ff";
@@ -619,14 +639,11 @@ let doorSize = 200;
 let wallWidth = (width-doorSize)/2;
 let wallHeight = (height-doorSize)/2;
 
-let upEntrance = new Wall(wallWidth-5, 0 + offset, doorSize+10, wallThickness, doorColor); //top
-let leftEntrance = new Wall(0, 0 + offset + wallHeight-5, wallThickness, wallHeight+5, doorColor); //left
-let rightEntrance = new Wall(width-wallThickness, 0 + offset + wallHeight-5, wallThickness, wallHeight+5, doorColor); //right
-let downEntrance = new Wall(wallWidth-5, height-wallThickness + offset, doorSize+5, wallThickness, doorColor); //bottom
-upEntrance.show = false;
-leftEntrance.show = false;
-rightEntrance.show = false;
-downEntrance.show = false;
+let upEntrance = new Wall(wallWidth-5, 0 + offset, doorSize+10, wallThickness, doorColor, false); //top
+let leftEntrance = new Wall(0, 0 + offset + wallHeight-5, wallThickness, wallHeight+5, doorColor, false); //left
+let rightEntrance = new Wall(width-wallThickness, 0 + offset + wallHeight-5, wallThickness, wallHeight+5, doorColor, false); //right
+let downEntrance = new Wall(wallWidth-5, height-wallThickness + offset, doorSize+5, wallThickness, doorColor, false); //bottom
+
 walls.push(upEntrance);
 walls.push(leftEntrance);
 walls.push(rightEntrance);
@@ -641,6 +658,11 @@ walls.push(new Wall(0, 0 + offset, wallWidth, wallThickness, wallColor)); //top 
 walls.push(new Wall(wallWidth+doorSize, 0 + offset, wallWidth, wallThickness, wallColor)); //top right top
 walls.push(new Wall(wallWidth+doorSize, height-wallThickness + offset, wallWidth, wallThickness, wallColor)); //bottom right bottom
 walls.push(new Wall(0, height-wallThickness + offset, wallWidth, wallThickness, wallColor)); //bottom left bottom
+
+let water1 = new Wall(width/2 - 220, wallThickness + offset, 440, wallHeight-wallThickness, "#084b93ff", false, false);
+let water2 = new Wall(width/2 - 220, height-wallHeight+offset, 440, wallHeight-wallThickness, "#084b93ff", false, false)
+walls.push(water1);
+walls.push(water2);
 
 
 let bars = [];
