@@ -48,6 +48,7 @@ function pythag(a, b) {
     return Math.sqrt(a**2 + b**2);
 }
 
+
 function angleRect(x, y, r, theta, sprite) {
     ctx.save();
     ctx.translate(x, y);
@@ -91,27 +92,89 @@ class Projectile {
         this.y += this.vy;
         this.by += this.vy;
 
-        for(let wall of walls) {
-            if(wall.pCollision(this.x, this.y)) {
-                projectiles.splice(projectiles.indexOf(this), 1);
-            }
-        }
+        this.wallCollision();
 
         if(this.x > width || this.x < 0 || this.y < offset || this.y > height + offset) {
             projectiles.splice(projectiles.indexOf(this), 1);
         }
     }
 
+    wallCollision() {
+        for(let wall of walls) {
+            if(wall.pCollision(this.x, this.y)) {
+                projectiles.splice(projectiles.indexOf(this), 1);
+            }
+        }
+    }
+
     hasCollided(entity) {
-
-
         if(Math.sqrt((this.x-entity.x)**2 + (this.y-entity.y)**2) < entity.r && entity !== this.owner) {
             entity.hit(this.theta, this.dmg);
             projectiles.splice(projectiles.indexOf(this), 1);
         }
     }
+}
 
-    
+class FireBall extends Projectile {
+
+    wallCollision() {
+        for(let wall of walls) {
+            if(wall.pCollision(this.x, this.y)) {
+                this.explode()
+                projectiles.splice(projectiles.indexOf(this), 1);
+            }
+        }
+    }
+
+    hasCollided(entity) {
+        if(Math.sqrt((this.x-entity.x)**2 + (this.y-entity.y)**2) < entity.r && entity !== this.owner) {
+            entity.hit(this.theta, this.dmg);
+            this.explode();
+            projectiles.splice(projectiles.indexOf(this), 1);
+        }
+    }
+
+    explode() {
+        if(pythag(player.x-this.x, player.y-this.y) <= 70) {
+            player.hit(player.theta + Math.PI, 1);
+        }
+        for(let enemy of enemies) {
+            let dist = pythag(enemy.x-this.x, enemy.y-this.y) - standardRadius/2
+            if(dist <= 70) {
+                let verticalScale = 8; //decrease for more damage
+                let damageAmount = Math.floor(Math.pow(10-dist/13, 2)/verticalScale - 1);
+                enemy.hp -= damageAmount
+                console.log(dist + " " + damageAmount);
+            }
+        }
+        effects.push(new Effect(this.x, this.y, 70, "#c6620a"));
+    }
+}
+
+class Effect {
+    constructor(x, y, r, color) {
+        this.x = x;
+        this.y = y;
+        this.r = r;
+        this.color = color;
+        this.time = 0;
+        this.ir = r / 2;
+    }
+
+    draw() {
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.ellipse(this.x, this.y, this.ir, this.ir, 0, 0, 2*Math.PI, false);
+        ctx.fill();
+    }
+
+    update() {
+        this.time += 1;
+        this.ir += this.r/2/30;
+        if(this.time > 30) {
+            effects.splice(effects.indexOf(this), 1);
+        }
+    }
 }
 
 
@@ -155,11 +218,14 @@ class Player extends Entity {
         this.py = 0;
         this.i = 0;
         this.hp = 4;
-        this.dmg = 1;
+        this.dmg = 1.5;
         this.xp = 0;
         this.level = 1;
         this.levelXp = 150;
         this.luck = 0;
+        this.spell1Delay = 0;
+        this.spell1Cooldown = 400;
+        this.hasSpell1 = false;
     }
 
     update() {
@@ -182,6 +248,8 @@ class Player extends Entity {
 
         if(keyStats['Space'] && this.shootDelay <= 0) {projectiles.push(new Projectile(this.x, this.y, this.theta, "blue", 4, this, this.dmg, 1.0)); this.shootDelay = 40;}
         this.shootDelay -= 1;
+        if(keyStats['KeyQ'] && this.spell1Delay <= 0 && player.hasSpell1) {projectiles.push(new FireBall(this.x, this.y, this.theta, "#c6620a", 4, this, 1.0, 2.0)); this.spell1Delay = this.spell1Cooldown;}
+        this.spell1Delay -= 1;
 
         this.theta = Math.atan((mouse.y-this.y)/(mouse.x-this.x));
         if(mouse.x < this.x) {
@@ -232,6 +300,7 @@ class Player extends Entity {
     }
 
 
+
 }
 
 class Enemy extends Entity {
@@ -241,6 +310,10 @@ class Enemy extends Entity {
     }
 
     update() {
+        if(this.x == NaN) {
+            //enemies.splice(enemies.indexOf(this), 1);
+        }
+
         this.theta = Math.atan((player.y-this.y)/(player.x-this.x));
         if(player.x < this.x) {
             this.theta += Math.PI;
@@ -279,6 +352,11 @@ class Enemy extends Entity {
             }
 
         }
+
+        if(this.hp <= 0) {
+            enemies.splice(enemies.indexOf(this), 1);
+            player.xp += 25;
+        }
     }
 
     hit(theta, dmg) {
@@ -292,10 +370,7 @@ class Enemy extends Entity {
             }
 
         }
-        if(this.hp <= 0) {
-            enemies.splice(enemies.indexOf(this), 1);
-            player.xp += 25;
-        }
+
         this.x -= 4*this.vx;
         this.y -= 4*this.vy;
         
@@ -464,6 +539,8 @@ class GameMap {
 class Room {
     constructor(parent, direction) {
         this.setpiece = "";
+        this.triggered = false;
+        this.resolved = false;
         this.up = false;
         this.down = false;
         this.left = false;
@@ -542,9 +619,14 @@ class Room {
             this.setpiece = "water";
             waterSP = true;
         }
+        if(!spell1SP && player.level > 1 && (this.left && !this.right && !this.up && !this.down || !this.left && this.right && !this.up && !this.down || !this.left && !this.right && this.up && !this.down || !this.left && !this.right && !this.up && this.down)) {
+            this.setpiece = "spell1";
+            spell1SP = true;
+            this.resolved = true;
+        }
 
-        this.triggered = false;
-        this.resolved = true;
+
+
     }
 
     update() {
@@ -556,6 +638,9 @@ class Room {
         if(this.setpiece == "water") {
             water1.show = true;
             water2.show = true;
+        }
+        if(this.setpiece == "spell1" && !player.hasSpell1) {
+            spell1.show = true;
         }
 
         if(player.x < -2) {
@@ -612,8 +697,40 @@ class Room {
             water1.show = false;
             water2.show = false;
         }
+        if(this.setpiece == "spell1") {
+            spell1.show = false;
+        }
     }
 }
+
+class PickUp {
+    constructor(x, y, color, callback) {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        this.show = false;
+        this.callback = callback;
+    }
+
+    draw() {
+        if(this.show) {
+            ctx.fillStyle = this.color;
+            ctx.fillRect(this.x-15, this.y-15, 30, 30);
+        }
+
+    }
+
+    update() {
+        if(pythag(player.x-this.x, player.y-this.y) < standardRadius && this.show) {
+            this.show = false;
+            this.callback();
+            effects.splice(effects.indexOf(this, 1));
+        }
+    }
+}
+
+let waterSP = false;
+let spell1SP = false;
 
 let player = new Player(800, 450, standardRadius, 2, playerSprite);
 let gameMap = new GameMap();
@@ -626,9 +743,13 @@ startRoom.down = true;
 startRoom.left = true;
 startRoom.right = true;
 startRoom.resolved = true;
+startRoom.setpiece = "";
 let currentRoom = startRoom;
 
-let waterSP = false;
+waterSP = false;
+spell1SP = false;
+
+
 
 
 let wallColor = "#383838ff";
@@ -702,11 +823,16 @@ boss.strafe = false;
 bossSpawned = false;
 
 
+let effects = []
+let spell1 = new PickUp(width/2, height/2 + offset, "#c6620a", () => {player.hasSpell1 = true});
+effects.push(spell1);
+//spell1.show = true;
+
 setInterval(() => {
     
     
     drawScreen();
-    drawUI();
+    
     
     //console.log(mouse.x + " " + mouse.y);
     //angleRect(mouse.x, mouse.y, 20, 0, enemySprite);
@@ -736,6 +862,13 @@ setInterval(() => {
         
         player.draw();
 
+        for(let effect of effects) {
+            effect.update();
+            effect.draw();
+        }
+
+        drawUI();
+
 
     }
     else {
@@ -755,6 +888,10 @@ setInterval(() => {
         }
         
         player.draw();
+
+        for(let effect of effects) {
+            effect.draw();
+        }
         drawOverlay(overlay);
         if(overlay == guide) {
             if(keyStats['Space']) {
@@ -764,7 +901,7 @@ setInterval(() => {
         }
         if(overlay == levelUp) {
             if(keyStats['Digit1']) {
-                player.dmg += 1;
+                player.dmg += 0.5;
                 overlay = gameOver;
                 simulating = true;
             }
@@ -779,6 +916,8 @@ setInterval(() => {
                 simulating = true;
             }
         }
+
+        drawUI();
     }
 
 }, 10);
@@ -916,6 +1055,24 @@ function drawUI() {
     ctx.fillStyle = "yellow";
     ctx.fillRect(width - 260, 10, 200*(player.xp/player.levelXp), 30);
 
+    if(player.hasSpell1) {
+        ctx.fillStyle = "#c6620a";
+        ctx.fillRect(width-50, offset + 20, 30, 30);
+        ctx.fillStyle = "white";
+        ctx.font = "bold 20px system-ui";
+        ctx.fillText("Q", width-60, offset + 60);
+
+        ctx.fillStyle = "#9494946e";
+        ctx.beginPath();
+        ctx.ellipse(width-35, offset + 35, 30, 30, 0, 0, 2 * Math.PI * (higherOf(0, player.spell1Delay)/player.spell1Cooldown), false);
+        ctx.lineTo(width-35, offset+35);
+        ctx.lineTo(width-5, offset +35);
+        ctx.fill();
+    }
+
+}
 
 
+function higherOf(a, b) {
+    if(a > b) { return a; } else { return b; }
 }
