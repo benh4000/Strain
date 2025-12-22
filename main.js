@@ -22,6 +22,16 @@ let enemySprite = new Image(50, 50);
 enemySprite.src = "assets\\enemy.png"
 let archerSprite = new Image(50, 50);
 archerSprite.src = "assets\\enemy2.png";
+let altar1Sprite = new Image(50, 50);
+altar1Sprite.src = "assets\\altar1.png";
+let altar2Sprite = new Image(50, 50);
+altar2Sprite.src = "assets\\altar2.png";
+let altar3Sprite = new Image(50, 50);
+altar3Sprite.src = "assets\\altar3.png";
+let altar4Sprite = new Image(50, 50);
+altar4Sprite.src = "assets\\altar4.png";
+let altar5Sprite = new Image(50, 50);
+altar5Sprite.src = "assets\\altar5.png";
 
 let gameOver = new Image();
 gameOver.src = "assets\\game_over.png"
@@ -31,6 +41,9 @@ let levelUp = new Image();
 levelUp.src = "assets\\level_up.png"
 let guide = new Image();
 guide.src = "assets\\guide.png";
+
+let sacrifice = new Image();
+sacrifice.src = "assets\\sacrifice.png";
 
 
 let scaleFactor = window.innerHeight/baseWindowHeight;
@@ -218,6 +231,8 @@ class Player extends Entity {
         this.py = 0;
         this.i = 0;
         this.hp = 4;
+        this.life = 4;
+        this.falselife = 0;
         this.dmg = 1.5;
         this.xp = 0;
         this.level = 1;
@@ -226,6 +241,8 @@ class Player extends Entity {
         this.spell1Delay = 0;
         this.spell1Cooldown = 400;
         this.hasSpell1 = false;
+        this.lifeSteal = false;
+        this.bulletSpeed = 4;
     }
 
     update() {
@@ -246,7 +263,7 @@ class Player extends Entity {
         }
 
 
-        if(keyStats['Space'] && this.shootDelay <= 0) {projectiles.push(new Projectile(this.x, this.y, this.theta, "blue", 4, this, this.dmg, 1.0)); this.shootDelay = 40;}
+        if(keyStats['Space'] && this.shootDelay <= 0) {projectiles.push(new Projectile(this.x, this.y, this.theta, "blue", this.bulletSpeed, this, this.dmg, 1.0)); this.shootDelay = 40;}
         this.shootDelay -= 1;
         if(keyStats['KeyQ'] && this.spell1Delay <= 0 && player.hasSpell1) {projectiles.push(new FireBall(this.x, this.y, this.theta, "#c6620a", 4, this, 1.0, 2.0)); this.spell1Delay = this.spell1Cooldown;}
         this.spell1Delay -= 1;
@@ -267,12 +284,18 @@ class Player extends Entity {
         }
     }
 
-    hit(theta, dmg) {
+    hit(theta, dmg, isTrue) {
         if(this.i < 1) {
             this.x += 20*Math.cos(theta);
             this.y += 20*Math.sin(theta);
             this.i = 40 + this.luck;
             this.hp -= 1;
+            if(this.falselife > 0 && !isTrue) {
+                this.falselife -= 1;
+            }
+            else {
+                this.life -= 1;
+            }
             if(this.hp <= 0) {
                 this.x = 10000;
                 simulating = false;
@@ -289,6 +312,7 @@ class Player extends Entity {
         this.level += 1;
         if(this.hp < 4) {
             this.hp += 1;
+            this.life += 1;
         }
 
         simulating = false;
@@ -537,7 +561,7 @@ class GameMap {
 }
 
 class Room {
-    constructor(parent, direction) {
+    constructor(parent, direction, isStart = false) {
         this.setpiece = "";
         this.triggered = false;
         this.resolved = false;
@@ -545,6 +569,8 @@ class Room {
         this.down = false;
         this.left = false;
         this.right = false;
+        this.seed = Math.random();
+        console.log(this.seed);
         if(direction == "right") {
             this.x = parent.x - 1;
             this.y = parent.y;
@@ -615,14 +641,31 @@ class Room {
         }
         gameMap[this.x.toString() + this.y.toString()] = this;
 
-        if(this.left && this.right && !this.up && !this.down && !waterSP && Math.random() < 0.26) {
+        if(isStart) {
+
+        }
+        else if(this.left && this.right && !this.up && !this.down && !waterSP && this.seed < 0.26) {
             this.setpiece = "water";
             waterSP = true;
         }
-        if(!spell1SP && player.level > 1 && (this.left && !this.right && !this.up && !this.down || !this.left && this.right && !this.up && !this.down || !this.left && !this.right && this.up && !this.down || !this.left && !this.right && !this.up && this.down)) {
+        else if(!spell1SP && player.level > 1 && (this.left && !this.right && !this.up && !this.down || !this.left && this.right && !this.up && !this.down || !this.left && !this.right && this.up && !this.down || !this.left && !this.right && !this.up && this.down)) {
             this.setpiece = "spell1";
             spell1SP = true;
             this.resolved = true;
+        }
+        else if(!altarSP && (this.seed < 0.45) && (this.left && this.right && this.down && !this.up || !this.left && !this.right && this.down && !this.up)) {
+            interactables.push(altar);
+            altarSP = true;
+            this.setpiece = "altar";
+            console.log("altar");
+        }
+        else if(!altarSP && (this.seed < 0.45) && (this.left && this.right && !this.down && this.up || !this.left && !this.right && !this.down && this.up)) {
+            altar.y += 495;
+            altar.wall.y += 495;
+            interactables.push(altar);
+            altarSP = true;
+            this.setpiece = "altar";
+            console.log("altar");
         }
 
 
@@ -641,6 +684,11 @@ class Room {
         }
         if(this.setpiece == "spell1" && !player.hasSpell1) {
             spell1.show = true;
+        }
+        if(this.setpiece == "altar") {
+            altar.show = true;
+            altar.wall.show = true;
+            altar.accesibile = this.resolved;
         }
 
         if(player.x < -2) {
@@ -700,6 +748,10 @@ class Room {
         if(this.setpiece == "spell1") {
             spell1.show = false;
         }
+        if(this.setpiece == "altar") {
+            altar.show = false;
+            altar.wall.show = false;
+        }
     }
 }
 
@@ -729,15 +781,86 @@ class PickUp {
     }
 }
 
+class Interactable {
+    constructor(x, y, r, ir, sprite, textSprite, theta, wallHeight=10) {
+        this.x = x;
+        this.y = y;
+        this.r = r;
+        this.ir = ir;
+        this.sprite = sprite;
+        this.show = false;
+        let length = r/Math.sqrt(2);
+        this.theta = theta;
+        if(this.theta == Math.PI) {this.wall = new Wall(x-length, y-length, length*2, 2*length-wallHeight, "grey");}
+        else {this.wall = new Wall(x-length, y-length+wallHeight, length*2, 2*length-wallHeight, "grey");}
+        walls.push(this.wall);
+        this.wall.show = false
+        this.showText = false
+        this.textSprite = textSprite;
+        this.accesibile = false;
+    }
+
+    draw() {
+        if(this.show) {
+            angleRect(this.x, this.y, this.r, this.theta, this.sprite);
+            // ctx.beginPath();
+            // ctx.ellipse(this.x, this.y, this.ir, this.ir, 0, 0, 2*Math.PI);
+            // ctx.stroke();
+
+            if(this.showText) {
+                let rate = this.textSprite.height/this.textSprite.width;
+                ctx.drawImage(this.textSprite, this.x-125, this.y-70, 250, 250*rate);
+            }
+        }
+    }
+
+    update() {
+        this.showText = (pythag(player.x-this.x, player.y-this.y) < this.ir) && this.show && this.accesibile;
+
+    }
+}
+
+class Altar extends Interactable {
+    constructor(x, y, r, ir, sprite, textSprite, theta, wallHeight=10) {
+        super(x, y, r, ir, sprite, textSprite, theta, wallHeight);
+        this.level = 0;
+        this.hasSacrificed = false;
+    }
+
+    update() {
+        super.update();
+        if(altar.level == 7) {this.showText = false;}
+        if(this.showText && keyStats['KeyG'] && !this.hasSacrificed && player.life > 0) {
+            this.hasSacrificed = true;
+            altar.level += 1;
+            player.hit(player.theta + Math.PI/2, 1, true);
+            if(altar.level == 1) {this.sprite = altar2Sprite;}
+            if(altar.level == 2) {player.falselife += 1; player.hp+=1;}
+            if(altar.level == 3) {this.sprite = altar3Sprite; player.bulletSpeed = 5}
+            if(altar.level == 4) {player.lifeSteal = true;}
+            if(altar.level == 5) {this.sprite = altar4Sprite; player.falselife += 1; player.hp += 1}
+            if(altar.level == 7) {this.sprite = altar5Sprite;}
+        }
+        if(!keyStats['KeyG']) {
+            this.hasSacrificed = false;
+        }
+
+    }
+}
+
 let waterSP = false;
 let spell1SP = false;
+let altarSP = false;
+let walls = [];
+let interactables = [];
+let altar = new Altar(width/2, 165, 90, 115, altar1Sprite, sacrifice, 0, 41);
 
 let player = new Player(800, 450, standardRadius, 2, playerSprite);
 let gameMap = new GameMap();
 let parent = {};
 parent.x = 0;
 parent.y = -1;
-let startRoom = new Room(parent, "up");
+let startRoom = new Room(parent, "up", true);
 startRoom.up = true;
 startRoom.down = true;
 startRoom.left = true;
@@ -748,13 +871,14 @@ let currentRoom = startRoom;
 
 waterSP = false;
 spell1SP = false;
+altarSP = false;
 
 
 
 
 let wallColor = "#383838ff";
 let doorColor = "#383838ff";//"#453103ff";
-let walls = [];
+
 let wallThickness = 70;
 let doorSize = 200;
 let wallWidth = (width-doorSize)/2;
@@ -803,15 +927,6 @@ let enemies = [];
 let wasArcher = true;
 
 
-
-let collidables = [];
-for(let wall of walls) {
-    collidables.push(wall);
-}
-for(let enemy of enemies) {
-    //collidables.push(enemy);
-}
-
 let simulating = false;
 let overlay = guide;
 let spawnTimer = 1000;
@@ -827,6 +942,18 @@ let effects = []
 let spell1 = new PickUp(width/2, height/2 + offset, "#c6620a", () => {player.hasSpell1 = true});
 effects.push(spell1);
 //spell1.show = true;
+
+
+
+
+
+
+let collidables = [];
+for(let wall of walls) {
+    collidables.push(wall);
+}
+
+
 
 setInterval(() => {
     
@@ -859,6 +986,10 @@ setInterval(() => {
             enemy.update();
             enemy.draw();
         }
+        for(let interactable of interactables) {
+            interactable.update();
+            interactable.draw();
+        }
         
         player.draw();
 
@@ -868,7 +999,6 @@ setInterval(() => {
         }
 
         drawUI();
-
 
     }
     else {
@@ -885,6 +1015,9 @@ setInterval(() => {
         for(let enemy of enemies) {
 
             enemy.draw();
+        }
+        for(let interactable of interactables) {
+            interactable.draw();
         }
         
         player.draw();
@@ -1024,20 +1157,19 @@ function drawScreen() {
 }
 
 function drawUI() {
-    ctx.fillStyle = "red";
+    
 
-    if(player.hp > 0) {
-        ctx.fillRect(20, 20, 50, 30);
+    for(let i=0; i<player.hp; i++) {
+        if(player.life > i) {
+            ctx.fillStyle = "red";
+            ctx.fillRect(20 + i*80, 20, 50, 30);
+        }
+        else {
+            ctx.fillStyle = "white";
+            ctx.fillRect(20 + i*80, 20, 50, 30);
+        }
     }
-    if(player.hp > 1) {
-        ctx.fillRect(100, 20, 50, 30);
-    }
-    if(player.hp > 2) {
-        ctx.fillRect(180, 20, 50, 30);
-    }
-    if(player.hp > 3) {
-        ctx.fillRect(260, 20, 50, 30);
-    }
+
 
     ctx.fillStyle = "white";
     ctx.font = "bold 48px system-ui";
