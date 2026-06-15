@@ -243,6 +243,7 @@ class Player extends Entity {
         this.hasSpell1 = false;
         this.lifeSteal = false;
         this.bulletSpeed = 4;
+        this.bastion = false;
     }
 
     update() {
@@ -310,7 +311,11 @@ class Player extends Entity {
         this.levelXp *= 1.3;
         this.i += 50;
         this.level += 1;
-        if(this.hp < 4) {
+        if(this.bastion) {
+            this.hp += 2;
+            this.life += 2;
+        }
+        else if(this.hp < 4) {
             this.hp += 1;
             this.life += 1;
         }
@@ -320,6 +325,13 @@ class Player extends Entity {
 
         if(player.level >= 10) {
             startRoom.resolved = false;
+        }
+    }
+
+    checkLifeSteal() {
+        if(this.lifeSteal && Math.random() <= 0.05) {
+            player.falselife += 1;
+            player.hp += 1;
         }
     }
 
@@ -380,6 +392,7 @@ class Enemy extends Entity {
         if(this.hp <= 0) {
             enemies.splice(enemies.indexOf(this), 1);
             player.xp += 25;
+            player.checkLifeSteal();
         }
     }
 
@@ -394,6 +407,7 @@ class Enemy extends Entity {
             }
 
         }
+
 
         this.x -= 4*this.vx;
         this.y -= 4*this.vy;
@@ -833,13 +847,14 @@ class Altar extends Interactable {
         if(this.showText && keyStats['KeyG'] && !this.hasSacrificed && player.life > 0) {
             this.hasSacrificed = true;
             altar.level += 1;
-            player.hit(player.theta + Math.PI/2, 1, true);
+            
             if(altar.level == 1) {this.sprite = altar2Sprite;}
             if(altar.level == 2) {player.falselife += 1; player.hp+=1;}
             if(altar.level == 3) {this.sprite = altar3Sprite; player.bulletSpeed = 5}
             if(altar.level == 4) {player.lifeSteal = true;}
             if(altar.level == 5) {this.sprite = altar4Sprite; player.falselife += 1; player.hp += 1}
-            if(altar.level == 7) {this.sprite = altar5Sprite;}
+            if(altar.level == 7) {this.sprite = altar5Sprite; player.bastion = true}
+            player.hit(player.theta + Math.PI/2, 1, true);
         }
         if(!keyStats['KeyG']) {
             this.hasSacrificed = false;
